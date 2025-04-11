@@ -1,29 +1,21 @@
-name: Test Upload Artifact with SHA
+name: artifact upload test
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  actions: read
+on: [push]
 
 jobs:
   test:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Create dummy file
         run: |
           mkdir dist
-          echo "hello world" > dist/test.txt
+          echo "hello" > dist/test.txt
 
-      - name: Upload artifact
-        uses: actions/upload-artifacte654d4c6e659b45783a725dc92f1bfb0baa6c2de64b34e814dc206ff4aaaf
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: test-artifact
           path: dist/test.txt
