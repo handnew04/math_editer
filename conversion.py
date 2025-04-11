@@ -49,19 +49,26 @@ def remove_custom_mapping(key):
         merged_mappings = new_merged
         save_mappings(mapping_data)
 
+def convert_dynamic_latex(text):
+    # ;1/2 → \frac{1}{2}
+    text = re.sub(r";(\d+)\/(\d+)", r"\\frac{\1}{\2}", text)
+
+    # ;루트3 → \sqrt{3}
+    text = re.sub(r";루트([0-9a-zA-Z\+\-\*/\s]+)", r"\\sqrt{\1}", text)
+
+    # ;벡터AB → \vec{AB}
+    text = re.sub(r";벡터([a-zA-Z]+)", lambda m: f"\\vec{{{m.group(1).upper()}}}", text)
+
+    # ;선분AB → \overline{AB}
+    text = re.sub(r";선분([a-zA-Z]+)", lambda m: f"\\overline{{{m.group(1).upper()}}}", text)
+
+    return text
+
 def convert_math_shorthand(text):
     global merged_mappings
+    text = convert_dynamic_latex(text)
     for key, value in merged_mappings.items():
-        text = text.replace(key, value)
-    
-    def replace_special(match):
-        s = match.group(1)
-        if s.isdigit():
-            return "√" + "".join(digit + "\u0305" for digit in s)
-        else:
-            return "".join(letter.upper() + "\u0305" for letter in s)
-    
-    text = re.sub(r";;-(\w+)", replace_special, text)
+        text = text.replace(key, value + " ")
     return text
 
 def populate_mapping_list(self):

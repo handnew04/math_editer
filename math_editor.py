@@ -1,5 +1,9 @@
 # math_editor.py
 import sys
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from io import BytesIO
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTextEdit, QPushButton,
@@ -47,13 +51,33 @@ class MathEditor(QWidget):
         super().__init__()
         self.setWindowTitle("수학 문제 타이핑 도우미")
         self.setup_ui()
-        
+
+    def latex_to_pixmap(self, latex_code):
+        try:
+            fig = plt.figure(figsize=(0.8, 0.4), dpi=100)
+            fig.patch.set_visible(False)
+            ax = fig.add_subplot(111)
+            ax.axis("off")
+            ax.text(0.5, 0.5, f"${latex_code}$", fontsize=14, ha='center', va='center')
+
+            buf = BytesIO()
+            fig.savefig(buf, format='png', bbox_inches='tight', transparent=True)
+            buf.seek(0)
+
+            pixmap = QPixmap()
+            pixmap.loadFromData(buf.read())
+            plt.close(fig)
+            return pixmap
+        except Exception as e:
+            print(f"렌더링 실패: {latex_code} → {e}")
+            return QPixmap()
+
     def setup_ui(self):
         main_layout = QHBoxLayout()
         left_layout = QVBoxLayout()
         right_layout = QVBoxLayout()
 
-        input_label = QLabel("문제 입력 (단축키 사용 가능):")
+        input_label = QLabel("입력, Shift + Enter = 바로 복사:")
         self.input_edit = CustomTextEdit(self)
         self.input_edit.setFont(QFont("Consolas", 12))
 
@@ -81,8 +105,14 @@ class MathEditor(QWidget):
         # 오른쪽 매핑 리스트
         self.mapping_list = QListWidget()
         self.mapping_list.setFont(QFont("Consolas", 11))
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("단축키 또는 수식 내용으로 검색")
+        self.search_bar.textChanged.connect(self.populate_mapping_list)
+        right_layout.addWidget(self.search_bar)
         right_layout.addWidget(QLabel("현재 단축키 매핑 목록:"))
         right_layout.addWidget(self.mapping_list)
+
+        self.mapping_list.itemClicked.connect(self.insert_mapping_to_input)
 
         self.remove_mapping_button = QPushButton("선택된 매핑 삭제")
         self.remove_mapping_button.clicked.connect(self.remove_selected_mapping)
@@ -98,19 +128,39 @@ class MathEditor(QWidget):
 
     def populate_mapping_list(self):
         self.mapping_list.clear()
-        self.mapping_list.addItem("🔒 고정 매핑")
-        for key, value in mapping_data.get("fixed", {}).items():
-            self.mapping_list.addItem(f"{key} → {value}")
-        
-        # 특수 패턴 매핑도 명시적으로 추가
-        self.mapping_list.addItem(";;-AB → 선분 표시 (A̅B̅)")
-        self.mapping_list.addItem(";;-12 → 숫자 루트 (√1̅2̅)")
+        all_mappings = {}
+        all_mappings.update(mapping_data.get("fixed", {}))
+        all_mappings.update(mapping_data.get("custom", {}))
 
-        self.mapping_list.addItem(" ")
+        # Include dynamic mappings as examples
+        dynamic_examples = {
+            ";1/2": "\\frac{1}{2}",
+            ";루트123": "\\sqrt{123}",
+            ";벡터AB": "\\vec{AB}",
+            ";선분AB": "\\overline{AB}",
+            "4^2(지수)": "4^2"
+        }
+        all_mappings.update(dynamic_examples)
 
-        self.mapping_list.addItem("👤 사용자 매핑")
-        for key, value in mapping_data.get("custom", {}).items():
-            self.mapping_list.addItem(f"{key} → {value}")
+        filter_text = self.search_bar.text().lower()
+
+        for key, value in all_mappings.items():
+            if filter_text and filter_text not in key.lower() and filter_text not in value.lower():
+                continue
+
+            item_widget = QWidget()
+            item_layout = QHBoxLayout(item_widget)
+            item_layout.setContentsMargins(2, 2, 2, 2)
+            item_layout.addWidget(QLabel(key))
+
+            preview_label = QLabel()
+            preview_label.setPixmap(self.latex_to_pixmap(value))
+            item_layout.addWidget(preview_label)
+
+            item = QListWidgetItem()
+            item.setSizeHint(item_widget.sizeHint())
+            self.mapping_list.addItem(item)
+            self.mapping_list.setItemWidget(item, item_widget)
 
     def convert_text(self):
         original_text = self.input_edit.toPlainText()
@@ -142,17 +192,29 @@ class MathEditor(QWidget):
         if not selected_items:
             return
 
-        for item in selected_items:
-            text = item.text()
-            # 사용자 매핑 섹션만 처리하도록 필터링
-            if "→" not in text or "고정" in text or "특수" in text or "사용자 매핑" in text:
-              continue
-            shortcut = text.split("→")[0].strip()
+        for i in selected_items:
+            index = self.mapping_list.row(i)
+            item_widget = self.mapping_list.itemWidget(i)
+            if item_widget:
+                shortcut_label = item_widget.layout().itemAt(0).widget()
+                shortcut = shortcut_label.text().strip()
 
-        # 실제 사용자 매핑인지 확인 후 삭제
-        if shortcut in mapping_data.get("custom", {}):
-            remove_custom_mapping(shortcut)
-            self.populate_mapping_list()
+                # Try removing from custom first
+                if shortcut in mapping_data.get("custom", {}):
+                    remove_custom_mapping(shortcut)
+                elif shortcut in mapping_data.get("fixed", {}):
+                    del mapping_data["fixed"][shortcut]
+
+        self.populate_mapping_list()
+
+    def insert_mapping_to_input(self, item):
+        item_widget = self.mapping_list.itemWidget(item)
+        if item_widget:
+            shortcut_label = item_widget.layout().itemAt(0).widget()
+            shortcut = shortcut_label.text().strip()
+            cursor = self.input_edit.textCursor()
+            cursor.insertText(shortcut)
+            self.input_edit.setFocus()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
