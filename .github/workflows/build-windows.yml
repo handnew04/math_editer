@@ -25,7 +25,7 @@ jobs:
 
       - name: Build executable with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --add-data "mapping.json;." --hidden-import=matplotlib --hidden-import=matplotlib.backends.backend_agg math_editor.py
+          pyinstaller --onefile --windowed --add-data "mapping.json=." --hidden-import=matplotlib --hidden-import=matplotlib.backends.backend_agg math_editor.py
 
       - name: List contents of dist folder
         run: dir dist
