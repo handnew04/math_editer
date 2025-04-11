@@ -34,7 +34,7 @@ jobs:
         run: dir dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: math-editor-win
           path: dist/math_editor.exe
