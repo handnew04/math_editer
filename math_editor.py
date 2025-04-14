@@ -94,6 +94,10 @@ class MathEditor(QWidget):
         self.add_mapping_button = QPushButton("새 단축키 매핑 추가")
         self.add_mapping_button.clicked.connect(self.add_mapping)
 
+        self.import_button = QPushButton("매핑 JSON 불러오기")
+        self.import_button.clicked.connect(self.import_mapping_file)
+        right_layout.addWidget(self.import_button)
+
         left_layout.addWidget(input_label)
         left_layout.addWidget(self.input_edit)
         left_layout.addWidget(self.convert_button)
@@ -125,6 +129,18 @@ class MathEditor(QWidget):
         self.resize(800, 600)
 
         self.populate_mapping_list()
+
+    def import_mapping_file(self):
+        from PyQt5.QtWidgets import QFileDialog, QMessageBox
+        import shutil
+
+        file_name, _ = QFileDialog.getOpenFileName(self, "매핑 JSON 파일 선택", "", "JSON Files (*.json)")
+        if file_name:
+            try:
+                shutil.copy(file_name, "mapping.json")
+                QMessageBox.information(self, "성공", "새 매핑 파일을 불러왔습니다.\n프로그램을 재시작해주세요.")
+            except Exception as e:
+                QMessageBox.critical(self, "오류", f"매핑 파일 불러오기 실패:\n{e}")
 
     def populate_mapping_list(self):
         self.mapping_list.clear()

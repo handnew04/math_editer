@@ -1,13 +1,23 @@
 import json
 import os
 import re
+import sys
 from PyQt5.QtWidgets import QHBoxLayout, QListWidget, QListWidgetItem
 
 MAPPING_FILE = "mapping.json"
 
 def load_mappings():
-    if os.path.exists(MAPPING_FILE):
-        with open(MAPPING_FILE, "r", encoding="utf-8") as f:
+    if hasattr(sys, '_MEIPASS'):
+        # Running as a PyInstaller bundle
+        base_path = sys._MEIPASS
+    else:
+        # Running as script or from source
+        base_path = os.path.abspath(".")
+
+    mapping_path = os.path.join(base_path, MAPPING_FILE)
+
+    if os.path.exists(mapping_path):
+        with open(mapping_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             fixed = data.get("fixed", {})
             custom = data.get("custom", {})
@@ -20,7 +30,7 @@ def load_mappings():
             "fixed": {},
             "custom": {}
         }
-        with open(MAPPING_FILE, "w", encoding="utf-8") as f:
+        with open(mapping_path, "w", encoding="utf-8") as f:
             json.dump(default_data, f, ensure_ascii=False, indent=4)
         return default_data, {}
 
