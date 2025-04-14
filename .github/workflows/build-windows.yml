@@ -30,8 +30,18 @@ jobs:
       - name: List contents of dist folder
         run: dir dist
 
-      - name: Upload dist folder as artifact
+      # - name: Upload dist folder as artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: math-editor-win
+      #     path: dist
+      
+      - name: Zip executable and mapping.json
+        run: |
+          7z a math_editor_bundle.zip dist\math_editor.exe mapping.json
+
+      - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: math-editor-win
-          path: dist
+          name: math-editor-bundle
+          path: math_editor_bundle.zip
